@@ -1,0 +1,385 @@
+
+// ----列舉--------------------------------------------------------------------------
+
+
+
+ 
+// 封包流程-------------------------------------------------------------------------
+1. Client連上線,對GS發出登入要求  (GameFrameType = ENUM_GAME_FRAME.Common)
+	(1) UC->GS 登入要求
+		PackID =  ENUM_COMMON_PACKID_GC.C2G_Actor_ReqLoginWithWebKey
+		(開發測試時,請使用 ENUM_COMMON_PACKID_GC.C2G_Actor_ReqLoginWithDBIDPw )
+
+		封包格式使用 CPACK_ActorDBIDPwLogin
+
+	(2) GS->UC 回覆登入結果
+		PackID = ENUM_COMMON_PACKID_GC.G2C_Actor_RplyLoginResult
+
+		封包格式使用 int (錯誤碼, 請參閱 ENUM_COMMON_ERROR_CODE )
+
+	(3) GS->UC 通知 玩家資料
+		PackID =  ENUM_COMMON_PACKID_GC.G2C_Actor_NotifyPlayerData
+
+		封包格式使用 CPACK_NotifyPlayerData
+
+//--------------------------------------------------------------------------------------
+2. 登入時,各遊戲系統的檯桌式機台機制會發送此遊戲相關設定給client
+	(因為萬惡的WebPlayer不能讀檔啊...T_T)
+
+	GS->UC 通知 遊戲相關設定   (GameFrameType = ENUM_GAME_FRAME.BlackJack)
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_NotifyGameConfig
+
+		封包格式使用 CPACK_TMGameConfig
+
+//--------------------------------------------------------------------------------------
+2. 登入時,各遊戲系統會發送此遊戲相關設定給client (針對各遊戲系統不同而不同,所以某些遊戲也可能沒這個封包)
+
+	(1) GS->UC 通知 遊戲相關設定   (GameFrameType = ENUM_GAME_FRAME.BlackJack)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_NotifyGameConfig
+
+		封包格式使用	CPACK_BlackJack_GameConfig
+
+//--------------------------------------------------------------------------------------
+2. 登入時,GameServer會把大廳內所有檯桌的資訊更新給client
+	(1) GS->UC 通知一組機台資料	(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_NotifyMachineList
+
+		封包格式使用 CPACK_TMachineDataList
+
+//--------------------------------------------------------------------------------------
+3. 當某檯桌的資訊變動時,GameServer會把該桌資訊廣播通知給所有client端
+	(1) GS->UC 通知更新某檯桌的資料	(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_NotifyMachineData
+
+		封包格式使用 CPACK_TMachineData
+
+//--------------------------------------------------------------------------------------
+4. 玩家按確認兌換時,  (GameFrameType = ENUM_GAME_FRAME.BlackJack)
+   client要檢查等級須>=可Buyin等級
+   client要檢查buyin金額不可超過最大可buyin金額,不可超過擁有金幣數,超過設為金幣數, 至少須大於等於最小buyin金額 
+		
+	(1) UC->GS 要求buyin
+		PackID = ENUM_COMMON_PACKID_GC.C2G_TMachine_ReqBuyin
+
+		封包格式使用 CPACK_TMachineBuyin
+	
+	(2) GS->UC 回覆buyin結果. 僅失敗時才會傳.
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_RplyBuyinResult
+
+		封包格式使用 int  (錯誤碼, 請參閱 ENUM_COMMON_ERROR_CODE)
+
+	(3) GS->UC 通知 buyin成功, 可進入遊戲.
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_NotifyStartGame
+
+		封包格式使用 CPACK_TMachineEnter
+
+//--------------------------------------------------------------------------------------
+6. Client要求buyout,回到大廳    (GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	UC->GS 要求buyout
+		PackID = ENUM_COMMON_PACKID_GC.C2G_TMachine_ReqBuyout
+
+		封包格式使用 null
+//--------------------------------------------------------------------------------------
+7. GS通知更新金幣數     (GameFrameType = ENUM_GAME_FRAME.Common)
+	(1) GS->UC 通知 更新金幣數
+		PackID = ENUM_COMMON_PACKID_GC.G2C_Actor_UpdateMoney
+
+		封包格式使用 UINT64  (金幣數)
+
+//--------------------------------------------------------------------------------------
+8. 自動配位           (GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) UC->GS 要求在指定範圍內自動配位
+		PackID = ENUM_COMMON_PACKID_GC.C2G_TMachine_AutoSelect
+
+		封包格式使用 CPACK_TMachineAutoSelect
+
+	(2) GS->UC 自動配位結果
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_AutoSelectResult
+
+		封包格式使用 CPACK_TMachineAutoSelectResult
+
+//--------------------------------------------------------------------------------------
+11. 玩家升級時		(GameFrameType = ENUM_GAME_FRAME.Common)
+	GS->UC 通知玩家升級
+		PackID = ENUM_COMMON_PACKID_GC.G2C_Actor_NotifyUpLv
+
+		封包格式使用 CPACK_NotifyUpLv
+
+//--------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------
+1. Client在進入遊戲畫面初始化完成後, 通知Server已準備好進行遊戲		(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) UC->GS 通知已準備好進行遊戲
+		PackID = ENUM_COMMON_PACKID_GC.C2G_TMachine_GameReady
+
+		封包格式使用 null
+	
+
+	如果再 新局開始 等待押注階段
+
+	(2) GS->UC 通知所有人 座位更新
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_SeatDataOne
+
+		封包格式使用 CSeatPlayerData
+
+	(2).2 GS->UC 通知該玩家 所有座位現在資料
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_SeatDataAll
+
+		封包格式使用 CAllSeatData
+
+	以上 
+
+
+
+	(3) GS->UC 此檯桌的戰績資訊
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyTableInfo
+
+		封包格式使用 CPACK_BlackJack_NotifyTableInfo
+
+	(4) GS->UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+
+//--------------------------------------------------------------------------------------
+2. Server通知 更新此檯桌的狀態階段					(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	GS->UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+	如在等待押注階段  會有 4. 需洗牌 則會有 3.
+	
+	如在停止押注 遊戲開始階段 會有 5.
+
+//--------------------------------------------------------------------------------------
+3. Server通知 洗牌							(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	GS->UC 通知 洗牌
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyShuffle
+
+		封包格式使用 CPACK_BlackJack_NotifyShuffle
+
+	註: Client端重設牌組剩餘張數
+//--------------------------------------------------------------------------------------
+4. Server通知 座位位置							(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	GS->UC 通知所有玩家 所有座位現在資料
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_SeatDataAll
+
+		封包格式使用 CAllSeatData
+
+	GS->UC 通知所有玩家 一個座位資料更新
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_SeatDataOne
+
+		封包格式使用 CSeatPlayerData
+//--------------------------------------------------------------------------------------
+18. Client 要求押注								(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	UC->GS 要求押注
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_ReqBet
+
+		封包格式使用 CPACK_BlackJack_ReqBet	
+
+	GS->UC 通知 更新某區域的押金變動     (會廣播給桌內所有成員. 若有錯,則只會回覆給要求者)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyBet
+
+		封包格式使用 CPACK_BlackJack_NotifyBet    
+
+//--------------------------------------------------------------------------------------
+5. Server通知 目前牌面							(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	GS->UC 通知所有玩家 所有有押注的玩家 目前牌面
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyDeal
+
+		封包格式使用 CPACK_BlackJack_NotifyDealData
+
+//--------------------------------------------------------------------------------------
+6. Client 要求要買保險				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.InsuranceTime
+	
+	(2) UC->GS 玩家要求 要購買保險
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_INSURE
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+//--------------------------------------------------------------------------------------
+7. Server通知可動作之玩家						(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	
+	(1) GS -> UC 再來可動作之玩家
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NowTargetPlayer
+
+		封包格式使用 CNowCanDoTarget
+
+	(2) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(3) 時間內 (1) 所代表的玩家可以開始動作
+		包含 8 ~ 13 的動作
+
+	(4) 時間到後 如有下家 回到 (1)
+
+	(5) 無下家 則 接續14. 之內容
+			      
+		
+//--------------------------------------------------------------------------------------
+19. Server通知 有玩家中途離開							(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	
+	GS->UC 通知所有玩家 有玩家中途離開
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_Abstain
+
+		封包格式使用 CSeatPlayerData
+//--------------------------------------------------------------------------------------
+8. Client 要求要要牌				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(2) UC->GS 玩家要求 要要牌
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_HIT
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+	
+	如該動作有成功 會有以下通知
+	(4) GS -> UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+//--------------------------------------------------------------------------------------
+
+9. Client 要求要停牌				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(2) UC->GS 玩家要求 要停牌
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_STAND
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+
+	如該動作有成功 會有以下通知
+	(4) GS -> UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+//--------------------------------------------------------------------------------------
+
+10. Client 要求要分牌				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(2) UC->GS 玩家要求 要分牌
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_SPLIT
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+
+	如該動作有成功 會有以下通知
+	(4) GS -> UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+//--------------------------------------------------------------------------------------
+
+11. Client 要求要加倍下注				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(2) UC->GS 玩家要求 要加倍下注
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_DOUBLE
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+
+	如該動作有成功 會有以下通知
+	(4) GS -> UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+//--------------------------------------------------------------------------------------
+
+12. Client 要求要投降				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(2) UC->GS 玩家要求 要投降
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_SURRENDER
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+
+	如該動作有成功 會有以下通知
+	(4) GS -> UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+//--------------------------------------------------------------------------------------
+
+13. Client 要求要報到				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.PlayerTime
+	
+	(2) UC->GS 玩家要求 要報到
+		PackID = ENUM_BlackJack_PACKID_GC.C2G_Game_BLACKJACK
+
+		封包格式使用 Null
+	(3) GS -> UC 通知玩家結果(成功會廣播給所有玩家)
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_playerDo
+
+		封包格式使用 CPACK_BlackJack_RePlayerDo
+
+	如該動作有成功 會有以下通知
+	(4) GS -> UC 通知 更新檯桌的狀態階段
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyState
+
+		封包格式使用 CPACK_BlackJack_UpdateTbleState
+
+//--------------------------------------------------------------------------------------
+
+14. Server 發送當局結果				(GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	(1) GS->UC 通知玩家當局結果
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_NotifyAward
+		
+		封包格式使用 CPACK_BlackJack_NotifyAward
+
+	(2) GS->UC  收到 2. 目前桌台狀態在 ENUM_BLACKJACK_TABLE_STATE.GameOver
+
+	(3) GS->UC  所有玩家的贏金
+		PackID = ENUM_BlackJack_PACKID_GC.G2C_Game_AllPlayerWin
+		
+		封包格式使用 CPACK_BlackJack_PlayerRank
+
+	
+
+//--------------------------------------------------------------------------------------
+15. Client要求buyout,回到大廳    (GameFrameType = ENUM_GAME_FRAME.BlackJack)
+	UC->GS 要求buyout
+		PackID = ENUM_COMMON_PACKID_GC.C2G_TMachine_ReqBuyout
+
+		封包格式使用 null
+//--------------------------------------------------------------------------------------
+16. Client端超過指定的連續局數未押注時,系統會將此玩家踢回大廳	(GameFrameType = ENUM_GAME_FRAME.Common)
+	GS->UC 通知 踢回大廳
+		PackID = ENUM_COMMON_PACKID_GC.G2C_TMachine_KickToLobby
+
+		封包格式使用 null
+//--------------------------------------------------------------------------------------
+17. 玩家升級時		(GameFrameType = ENUM_GAME_FRAME.Common)
+	GS->UC 通知玩家升級
+		PackID = ENUM_COMMON_PACKID_GC.G2C_Actor_NotifyUpLv
+
+		封包格式使用 CPACK_NotifyUpLv
+
+//--------------------------------------------------------------------------------------
